@@ -1,0 +1,101 @@
+---
+title: "MTH6139 Time Series"
+subtitle: "Coursework 1"
+author:
+- name: Annie Xiao # replace this by your name
+date: "March 2024"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r}
+htmltools::img(src = knitr::image_uri("QMlogo.png"), 
+               alt = 'logo', 
+               style = 'position:absolute; top:0; right:0; padding:10px; width:30%;')
+```
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+install.packages("prophet",repos = "http://cran.us.r-project.org")
+
+```
+
+
+
+To begin the project, I loaded the library using `library(prophet)` and installed both the default install package and the latest release. The latest release led to updated versions of all packages. After doing so, I read in the data and created the outcome variable, which is a dataframe with columns ds (the date) and y (numeric value).
+
+
+
+```{r}
+co2.df = data.frame(
+  ds=zoo::as.yearmon(time(co2)), 
+  y=co2)
+```
+
+
+CO2 represents atmospheric CO2 concentrations (measured in parts per million) recorded at Mauna Loa at respective dates. Observations were recorded monthly from 1959 to 1997, and missing values for Feb, March, and April 1964 were interpolated linearly from data from Jan and May of 1964. The purpose of the project is to monitor CO2 levels over time, specifically as Mauna Loa is in a fairly remote location, away from large point sources, so the CO2 measurements serve as a good baseline measurement for CO2 emissions and illustrate the anthropogenic influence on CO2 levels and trends.
+
+
+
+
+In order to fully understand the time series, I decided to decompose the time series using the decompose function in R. This function breaks up the time series into multiple features, namely trend, seasonality, and residual/random error. The trend represents the underlying non-random evolution of the function, most important to understanding what drives the change in time series. The seasonality is the underlying non-random periodic function, illustrating patterns in the data based on time of year. In this case, CO2 emissions may be higher during certain months or seasons, and these patterns would be indicated in the seasonality component of the decompostion. Lastly, the residual/random error is what remains after removing the trend, seasonality, and cyclic effects, representing an error that can't be explained. Ideally, this would be equally volatile over time, if not, this indicates the error is not fully random but instead dependent on the time. 
+
+
+ 
+```{r}
+plot(decompose(co2))
+
+```
+After running the decomposition, the trend appears linear but could possibly be  exponentially increasing. The seasonal data is an extremely periodic function, indicating that CO2 emissions depend largely on the season and month, with the highest emissions taking place in the spring months.The random error appears homoskedastic with variability not dependent on time, indicating the error is fairly random.
+
+
+Next, I want to run a linear regression to understand if CO2 emissions are increasingly linearly over time and if so, by how much each year. 
+```{r}
+model = lm(y~ds, data=co2.df)
+summary(model)
+```
+The regression indicates that CO2 emissions increase at a rate of 1.308 ppm/year, increasing about 12.5% in 30 years. The adjusted R-squared value of 0.9694 indicates that the linear model is a very good fit for the data. Therefore, this model represents the data well and CO2 emissions increased linearly from 1959 to 1997.
+```{r}
+plot(co2.df$ds, co2.df$y, main = "Mauna Loa CO2 Emissions 1959 to 1997", ylab = "CO2 Emissions (ppm)", xlab = "Year")
+lines(co2.df$ds, fitted(model), type ='l', col = 'red')
+```
+
+
+After looking at the linear regression, it is valuable to look at a specific and shorter data frame. I'm specifically interested to evaluate CO2 emissions 5 years after the Clean Air Act of 1970, seeing whether trends in CO2 emissions changed. Legislation like the Clean Air Act should reduce emissions, but I'm curious whether it would reduce emissions over the entire year or just specific months. 
+
+```{r}
+
+co2_1969 <- subset(co2.df, format(ds, "%Y") == "1969")
+model_1969 <-lm(y~ds, data = co2_1969) 
+plot(co2_1969$ds, co2_1969$y, main = "Mauna Loa CO2 Emissions 1969", ylab = "CO2 Emissions in 1969(ppm)", xlab = "Month in 1969")
+lines(co2_1969$ds, predict(model_1969), col = "blue")
+```
+
+```{r}
+
+co2_1975 <- subset(co2.df, format(ds, "%Y") == "1975")
+model_1975 <-lm(y~ds, data = co2_1975) 
+plot(co2_1975$ds, co2_1975$y, main = "Mauna Loa CO2 Emissions 1975", ylab = "CO2 Emissions in 1975(ppm)", xlab = "Month in 1975")
+lines(co2_1975$ds, predict(model_1975), col = "blue")
+```
+
+The emissions show the same cyclic pattern of CO2 emissions, with emissions in 1975 decreased slightly from where they were estimated to be using the slope of the linear regressions (1.308)performed above. Further, the cyclic pattern remains for both years, showing that emissions may have decreased slightly due to the Clean Air Act across the entire year instead of reducing emissions across specific months. This also shows the difficulty in legislation substaintially impacting CO2 emissions.
+
+
+Lastly, I want to use Meta's Prophet to forecast future data based on Mauna Loa's CO2 Emissions recorded data. This will help understand future CO2 emissions, specifically important in setting CO2 emission reduction goals. 
+
+```{r}
+m = prophet::prophet(co2.df)
+f = prophet::make_future_dataframe(m, periods=8, freq="quarter")
+p = predict(m, f)
+plot(m,p)
+```
+The graph depicts the prediction for 1996 and 1975, showing the same upward trend in CO2 emissions. This prediction shows that CO2 emissions will only continue increasing at the same rate, with no legislation or significant changes. Increasing CO2 emissions will lead to rising sea levels, climate change, decreased biodiversity, and habitat loss and compels us all to action before the results are irreversisble. We all have a part to play and ability to enact change, even if it's through using time series to develop predictions about CO2 emissions. 
+
+
+
